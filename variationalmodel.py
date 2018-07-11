@@ -3,14 +3,13 @@ import torch.nn as nn
 
 
 class VariationalModel(nn.Module):
-    def __init__(self, x_dim, h_dim, z_dim, psi_dim, num_montecarlo = 1):
+    def __init__(self, x_dim, h_dim, z_dim, psi_dim):
         super(VariationalModel, self).__init__()
 
         self.x_dim = x_dim
         self.h_dim = h_dim
         self.z_dim = z_dim
         self.psi_dim = psi_dim
-        self.num_montecarlo = num_montecarlo
 
         # generator
         self.gen = nn.Sequential(
@@ -56,33 +55,38 @@ class VariationalModel(nn.Module):
 
     def forward(self, psi_t, x_t, batch_size):
 
-        # compute Q(Z|X)
+        # compute Q(Z|X) given context and x_t
         z_enc = self.inf(torch.cat([psi_t, x_t], dim=1))
         z_mean = self.inf_mean(z_enc)
         z_std = self.inf_std(z_enc)
 
-        # compute prior
+        # compute prior over z_t given context
         z_enc_prior = self.prior(psi_t)
         z_mean_prior = self.prior_mean(z_enc_prior)
         z_std_prior = self.prior_std(z_enc_prior)
 
+        # get a sample of z_t
+        z_sample = self.sample_gaussian(z_mean, z_std, batch_size)
+
+        # get distribution over x_t given z_t and the context
+        _x_t_enc = self.gen(torch.cat([psi_t, z_sample], dim=1))
+        _x_t_mean = self.gen_mean(_x_t_enc)
+        _x_t_std = self.gen_mean(_x_t_enc)
+
         kld = self._kld_gauss(z_mean, z_std, z_mean_prior, z_std_prior)
-        nll = 0
-        for i in range(self.num_montecarlo):
-            # sample Z using the inference model
-            z_sample = self.sample_gaussian(z_mean, z_std)
+        nll =  self._nll_bernoulli(_x_t_mean, x_t)
+        elbo_t = - nll - kld
 
-
-
+        return z_sample, _x_t_mean, elbo_t
 
     def reset_parameters(self, stdv=1e-1):
         for weight in self.parameters():
             weight.data.normal_(0, stdv)
 
 
-    def sample_gaussian(self, mean, std):
-        normalsample = torch.randn(mean.size()).to(self.device)  # mean is a zero vector, all diagonals are 1 in std
-        return normalsample.mul(std) + mean  # scale the vector based on std
+    def sample_gaussian(self, mean, std, batch_size):
+        normalsample = torch.randn(batch_size, mean.size()).to(self.device)
+        return normalsample * std + mean  # scale the vector based on std and add mean
 
 
     def sample_x_mean(self):
@@ -98,11 +102,11 @@ class VariationalModel(nn.Module):
         kld_element = (2 * torch.log(std_2) - 2 * torch.log(std_1) +
                        (std_1.pow(2) + (mean_1 - mean_2).pow(2)) /
                        std_2.pow(2) - 1)
-        return 0.5 * torch.sum(kld_element)
+        return 0.5 * torch.sum(kld_element, dim = 1)
 
 
     def _nll_bernoulli(self, theta, x):
-        return - torch.sum(x * torch.log(theta) + (1 - x) * torch.log(1 - theta))
+        return - torch.sum(x * torch.log(theta) + (1 - x) * torch.log(1 - theta), dim=1)
 
 
     def _nll_gauss(self, mean, std, x):
