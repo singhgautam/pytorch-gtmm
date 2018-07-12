@@ -38,7 +38,7 @@ class ModelCell(nn.Module):
         self.state = State(self.memory, self.controller)
 
         # create variational model
-        self.vmodel = VariationalModel(params.sequence_width + 1,
+        self.vmodel = VariationalModel(params.sequence_width,
                                        params.variational_hidden_size,
                                        params.memory_m,
                                        params.memory_m)

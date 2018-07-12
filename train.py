@@ -30,21 +30,22 @@ def init_seed(seed=None):
     torch.manual_seed(seed)
     random.seed(seed)
 
-def generate_random_batch(params, device = 'cpu'):
+def generate_random_batch(params, batch_size = None, device = 'cpu'):
+    if batch_size is None:
+        batch_size = params.batch_size
     # All batches have the same sequence length
-    seq_len = random.randint(params.sequence_min_len,
-                             params.sequence_max_len)
-    seq = np.random.binomial(1, 0.5, (seq_len,
-                                      params.batch_size,
+    seq_len = params.sequence_len
+    seq = np.random.binomial(1, 0.1, (seq_len,
+                                      batch_size,
                                       params.sequence_width))
     seq = torch.Tensor(seq, device = device)
 
     # The input includes an additional channel used for the delimiter
-    inp = torch.zeros(seq_len + 1, params.batch_size, params.sequence_width + 1, device = device)
+    inp = torch.zeros(seq_len, batch_size, params.sequence_width, device = device)
     inp[:seq_len, :, :params.sequence_width] = seq
-    inp[seq_len, :, params.sequence_width] = 1.0  # delimiter in our control channel
+    # inp[seq_len, :, params.sequence_width] = 1.0  # delimiter in our control channel
 
-    outp = torch.zeros(seq_len, params.batch_size, params.sequence_width + 1, device=device)
+    outp = torch.zeros(seq_len, batch_size, params.sequence_width, device=device)
     outp[:seq_len, :, :params.sequence_width] = seq
 
     return inp, outp
@@ -91,11 +92,11 @@ print 'modelcell.state.readstate.r.device {}'.format(modelcell.state.readstate.r
 print 'modelcell.state.controllerstate.device {}'.format(modelcell.state.controllerstate.device)
 print 'modelcell.state.latentstate.state.device {}'.format(modelcell.state.latentstate.state.device)
 
-optimizer = optim.RMSprop(modelcell.parameters(),
-                          momentum=params.rmsprop_momentum,
-                          alpha=params.rmsprop_alpha,
-                          lr=params.rmsprop_lr)
-
+# optimizer = optim.RMSprop(modelcell.parameters(),
+#                           momentum=params.rmsprop_momentum,
+#                           alpha=params.rmsprop_alpha,
+#                           lr=params.rmsprop_lr)
+optimizer = torch.optim.Adam(modelcell.parameters(), lr=params.adam_lr)
 
 """START TRAINING MODEL"""
 loss_history = []
@@ -136,7 +137,8 @@ for batch_num in range(params.num_batches):
                       sum(loss_history[-params.save_every:]) / params.save_every)
 
     if batch_num % params.illustrate_every == 0 :
-        X, Y = params.get_illustrative_sample(device=device)
+        # X, Y = params.get_illustrative_sample(device=device)
+        X, Y = generate_random_batch(params, batch_size=1, device=device)
 
         modelcell.memory.reset(batch_size=1)
         modelcell.state.reset(batch_size=1)
