@@ -62,18 +62,15 @@ class State(nn.Module):
         self.memory = memory
         self.controller = controller
 
-    def reset(self, batch_size, num_read_states, latent_size):
+    def reset(self, batch_size):
         # setup readstate
-        self.readstates = []
-        for i in range(num_read_states):
-            readstate = ReadState(self.memory)
-            readstate.reset(batch_size)
-            self.readstates.append(readstate)
+        self.readstate = ReadState(self.memory)
+        self.readstate.reset(batch_size)
 
         # setup controller state
         self.controllerstate = ControllerState(self.controller)
         self.controllerstate.reset(batch_size)
 
         # setup latent state
-        self.latentstate = LatentState(latent_size)
+        self.latentstate = LatentState(self.memory.M)
         self.latentstate.reset(batch_size)

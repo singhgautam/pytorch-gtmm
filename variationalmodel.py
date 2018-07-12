@@ -73,6 +73,7 @@ class VariationalModel(nn.Module):
         _x_t_mean = self.gen_mean(_x_t_enc)
         _x_t_std = self.gen_mean(_x_t_enc)
 
+        # compute kld, log-likelihood of x_t and sub-elbo
         kld = self._kld_gauss(z_mean, z_std, z_mean_prior, z_std_prior)
         nll =  self._nll_bernoulli(_x_t_mean, x_t)
         elbo_t = - nll - kld
@@ -85,15 +86,19 @@ class VariationalModel(nn.Module):
 
 
     def sample_gaussian(self, mean, std, batch_size):
-        normalsample = torch.randn(batch_size, mean.size()).to(self.device)
+        normalsample = torch.randn(mean.size(), device = self.device)
         return normalsample * std + mean  # scale the vector based on std and add mean
 
 
-    def sample_x_mean(self):
-        z_sample = self.sample_gaussian(self.prior_z_mean, self.prior_z_std)
-        z_enc = self.gen(z_sample)
-        x_gen = self.gen_mean(z_enc)
-        return x_gen
+    def sample_x_mean(self, psi, batch_size):
+        # compute prior over z_t given context
+        z_enc_prior = self.prior(psi)
+        z_mean_prior = self.prior_mean(z_enc_prior)
+        z_std_prior = self.prior_std(z_enc_prior)
+        z_sample = self.sample_gaussian(z_mean_prior, z_std_prior, batch_size)
+        x_enc = self.gen(torch.cat([psi, z_sample], dim=1))
+        x_gen_mean = self.gen_mean(x_enc)
+        return z_sample, x_gen_mean
 
 
     def _kld_gauss(self, mean_1, std_1, mean_2, std_2):
