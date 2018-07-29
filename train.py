@@ -3,7 +3,8 @@ import random
 import numpy as np
 from torch import optim
 from modelcell import ModelCell
-from tasks.copytask import CopyTaskParams
+from tasks.recalltaskbinary import RecallTaskBinaryParams
+from tasks.recalltaskmnist import RecallTaskMNISTParams
 import logging
 import json
 import time
@@ -29,26 +30,6 @@ def init_seed(seed=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
-
-def generate_random_batch(params, batch_size = None, device = 'cpu'):
-    if batch_size is None:
-        batch_size = params.batch_size
-    # All batches have the same sequence length
-    seq_len = params.sequence_len
-    seq = np.random.binomial(1, 0.1, (seq_len,
-                                      batch_size,
-                                      params.sequence_width))
-    seq = torch.Tensor(seq, device = device)
-
-    # The input includes an additional channel used for the delimiter
-    inp = torch.zeros(seq_len, batch_size, params.sequence_width, device = device)
-    inp[:seq_len, :, :params.sequence_width] = seq
-    # inp[seq_len, :, params.sequence_width] = 1.0  # delimiter in our control channel
-
-    outp = torch.zeros(seq_len, batch_size, params.sequence_width, device=device)
-    outp[:seq_len, :, :params.sequence_width] = seq
-
-    return inp, outp
 
 def clip_grads(model, range):
     """Gradient clipping to the range."""
@@ -76,7 +57,8 @@ def mean_progress(batch_num, mean_loss):
 
 init_seed(1000)
 
-params = CopyTaskParams()
+# params = RecallTaskBinaryParams()
+params = RecallTaskMNISTParams()
 
 # init model cell
 modelcell = ModelCell(params)
@@ -109,7 +91,7 @@ for batch_num in range(params.num_batches):
     optimizer.zero_grad()
 
     # generate data for the copy task
-    X, Y = generate_random_batch(params, device = device)
+    X, Y = params.generate_random_batch(device = device)
 
     # input phase
     for i in range(X.size(0)):
@@ -125,8 +107,9 @@ for batch_num in range(params.num_batches):
     mean_neg_elbo = -elbo.mean()
     mean_neg_elbo.backward()
 
+
     # log elbo history
-    loss_history.append(mean_neg_elbo)
+    loss_history.append(mean_neg_elbo.data)
 
     clip_grads(modelcell, params.clip_grad_thresh)
     optimizer.step()
@@ -138,7 +121,7 @@ for batch_num in range(params.num_batches):
 
     if batch_num % params.illustrate_every == 0 :
         # X, Y = params.get_illustrative_sample(device=device)
-        X, Y = generate_random_batch(params, batch_size=1, device=device)
+        X, Y = params.generate_illustrative_random_batch(device=device)
 
         modelcell.memory.reset(batch_size=1)
         modelcell.state.reset(batch_size=1)
@@ -159,11 +142,4 @@ for batch_num in range(params.num_batches):
         Y_out_binary = Y_out.cpu().clone().data
         Y_out_binary.apply_(lambda x: 0 if x < 0.5 else 1)
 
-        torchvision.utils.save_image(X.cpu().detach().squeeze(1), 'imsaves/illustrations/batch-{}-X.png'.format(batch_num))
-        torchvision.utils.save_image(Y_out.cpu().detach().squeeze(1), 'imsaves/illustrations/batch-{}-Y.png'.format(batch_num))
-        torchvision.utils.save_image(attention_history.cpu().detach(), 'imsaves/illustrations/batch-{}-attention.png'.format(batch_num))
-        torchvision.utils.save_image(Y_out_binary.cpu().detach().squeeze(1), 'imsaves/illustrations/batch-{}-Y-binary.png'.format(batch_num))
-        torchvision.utils.save_image(modelcell.memory.memory.cpu().detach().squeeze(0), 'imsaves/illustrations/batch-{}-mem.png'.format(batch_num))
-
-
-
+        params.create_images(batch_num, X, Y_out, Y_out_binary, attention_history, modelcell)
