@@ -17,10 +17,10 @@ class RecallTaskMNISTParams(TaskBaseParams):
     controller_layers = 1
 
     memory_n = 128
-    memory_m = 100
+    memory_m = 20
     num_read_heads = 1
 
-    variational_hidden_size = 800
+    variational_hidden_size = 400
 
     clip_grad_thresh = 5
 
@@ -89,6 +89,7 @@ class RecallTaskMNISTParams(TaskBaseParams):
             _data, _ = data_iter.next()
             _data = _data.squeeze()
             _data = _data.view(-1, 28 * 28)
+            _data = (_data - _data.min()) / (_data.max() - _data.min())
             inp[i, :, :] = _data
             if i < self.sequence_k:
                 outp[i, :, :] = _data
@@ -105,6 +106,7 @@ class RecallTaskMNISTParams(TaskBaseParams):
             _data, _ = data_iter.next()
             _data = _data.squeeze()
             _data = _data.view(-1, 28 * 28)
+            _data = (_data - _data.min()) / (_data.max() - _data.min())
             inp[i, :, :] = _data
             if i < self.sequence_k:
                 outp[i, :, :] = _data
