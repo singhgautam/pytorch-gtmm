@@ -28,21 +28,23 @@ class ROM(nn.Module):
         """
         super(ROM, self).__init__()
 
-        self.N = N
-        self.M = M
-
         self.device = torch.device("cpu")
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
+
+        self.N = N
+        self.M = M
+
+        # stdev = 1 / (np.sqrt(self.N + self.M))
+        self.memory0 = torch.ones(self.N, self.M, device = self.device)._abs() * 1e-6
+
 
     def reset(self, batch_size):
         """Reset the memory"""
         self.batch_size = batch_size
         self.write_loc = 0
 
-        stdev = 1 / (np.sqrt(self.N + self.M))
-        self.memory = torch.randn(self.N, self.M, device = self.device).repeat(batch_size, 1, 1) * stdev
-        self.memory.abs_()
+        self.memory = self.memory0.clone().repeat(batch_size, 1, 1)
 
     def visualize(self, savefile):
         torchvision.utils.save_image(self.memory, savefile)
@@ -57,11 +59,20 @@ class ROM(nn.Module):
     def write(self, a):
         if a is None:
             return
-        # write
-        new_memory = self.memory.clone()
-        new_memory[:,self.write_loc,:a.size(1)] = a
-        self.memory = new_memory
-        # increment the head one step
+
+        self.prev_memory = self.memory
+        self.memory = torch.Tensor(self.batch_size, self.N, self.M, device = self.device)
+
+        w = torch.zeros(self.batch_size, self.N, device = self.device)
+        w[:, self.write_loc] = 1.0
+        e = torch.ones(self.batch_size, self.M, device = self.device)
+
+        erase = torch.matmul(w.unsqueeze(-1), e.unsqueeze(1))
+        add = torch.matmul(w.unsqueeze(-1), a.unsqueeze(1))
+
+        # write to memory
+        self.memory = self.prev_memory * (1 - erase) + add
+
         self.write_loc = (self.write_loc + 1) % self.N
 
 

@@ -5,6 +5,7 @@ from torch import optim
 from modelcell import ModelCell
 from tasks.recalltaskbinary import RecallTaskBinaryParams
 from tasks.recalltaskmnist import RecallTaskMNISTParams
+from tasks.parityrecalltaskmnist import ParityRecallTaskMNISTParams
 import logging
 import json
 import time
@@ -58,7 +59,8 @@ def mean_progress(batch_num, mean_loss):
 init_seed(1000)
 
 # params = RecallTaskBinaryParams()
-params = RecallTaskMNISTParams()
+# params = RecallTaskMNISTParams()
+params = ParityRecallTaskMNISTParams()
 
 # init model cell
 modelcell = ModelCell(params)
@@ -126,20 +128,21 @@ for batch_num in range(params.num_batches):
         modelcell.memory.reset(batch_size=1)
         modelcell.state.reset(batch_size=1)
 
-        attention_history = torch.zeros(X.size(0) + Y.size(0), modelcell.memory.N, device=device)
+        attention_history = torch.zeros(1 + X.size(0) + Y.size(0), modelcell.memory.N, device=device)
+        attention_history[0] = modelcell.state.readstate.w.squeeze()
 
         # input phase
         for i in range(X.size(0)):
             _elbo, _ = modelcell(X[i], params.batch_size)
-            attention_history[i] = modelcell.state.readstate.w.squeeze()
+            attention_history[1 + i] = modelcell.state.readstate.w.squeeze()
 
         # output phase
         Y_out = torch.zeros(Y.size(), device=device)
         for i in range(Y.size(0)):
             Y_out[i] = modelcell.generate(1)
-            attention_history[X.size(0) + i] = modelcell.state.readstate.w.squeeze()
+            attention_history[1 + X.size(0) + i] = modelcell.state.readstate.w.squeeze()
 
         Y_out_binary = Y_out.cpu().clone().data
         Y_out_binary.apply_(lambda x: 0 if x < 0.5 else 1)
 
-        params.create_images(batch_num, X, Y_out, Y_out_binary, attention_history, modelcell)
+        params.create_images(batch_num, X, Y, Y_out, Y_out_binary, attention_history, modelcell)

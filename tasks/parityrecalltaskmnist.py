@@ -6,25 +6,25 @@ from itertools import cycle
 import os
 from taskbase import TaskBaseParams
 
-class RecallTaskMNISTParams(TaskBaseParams):
-    name = "recall-task-mnist"
+class ParityRecallTaskMNISTParams(TaskBaseParams):
+    name = "parity-recall-task-mnist"
 
     sequence_width = 28*28
     sequence_l = 10
     sequence_k = 5
 
-    controller_size = 100
-    controller_layers = 1
+    controller_size = 256
+    controller_layers = 3
 
     memory_n = 128
-    memory_m = 20
+    memory_m = 32
     num_read_heads = 1
 
     variational_hidden_size = 400
 
-    clip_grad_thresh = 5
+    clip_grad_thresh = 10
 
-    num_batches = 100000
+    num_batches = 1000000
     batch_size = 10
 
     rmsprop_lr = 1e-4
@@ -76,6 +76,72 @@ class RecallTaskMNISTParams(TaskBaseParams):
         )
         self.illustration_loader_iter = cycle(illustration_loader)
 
+        # indices of ones and zeros
+        idx_ones_train = [idx for idx, (data, label) in enumerate(train_dataset) if int(label.numpy()) == 1]
+        idx_zeros_train = [idx for idx, (data, label) in enumerate(train_dataset) if int(label.numpy()) == 0]
+        idx_ones_test = [idx for idx, (data, label) in enumerate(test_dataset) if int(label.numpy()) == 1]
+        idx_zeros_test = [idx for idx, (data, label) in enumerate(test_dataset) if int(label.numpy()) == 0]
+
+        # zeros and ones from the training set
+        ones_loader_train = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=1,
+            sampler=torch.utils.data.SubsetRandomSampler(idx_ones_train)
+        )
+        self.ones_loader_train_iter = cycle(ones_loader_train)
+
+        zeros_loader_train = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=1,
+            sampler=torch.utils.data.SubsetRandomSampler(idx_zeros_train)
+        )
+        self.zeros_loader_train_iter = cycle(zeros_loader_train)
+
+        # zeros and ones from the test set
+        ones_loader_test = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=1,
+            sampler=torch.utils.data.SubsetRandomSampler(idx_ones_test)
+        )
+        self.ones_loader_test_iter = cycle(ones_loader_test)
+
+        zeros_loader_test = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=1,
+            sampler=torch.utils.data.SubsetRandomSampler(idx_zeros_test)
+        )
+        self.zeros_loader_test_iter = cycle(zeros_loader_test)
+
+
+    def labels_to_parity_img_batch(self, labels, train = True, device='cpu'):
+        """
+        Returns a tensor containing a batch of parity labels in the form of MNIST images
+        :param labels: a list of labels
+        """
+
+        # initialize a parity images batch
+        parity_img_batch = torch.zeros(len(labels), 28, 28, device=device)
+
+        # load ones and zeros from the training or the test data sets as specified
+        ones_loader_iter = self.ones_loader_train_iter
+        zeros_loader_iter = self.zeros_loader_train_iter
+        if not train:
+            ones_loader_iter = self.ones_loader_test_iter
+            zeros_loader_iter = self.zeros_loader_test_iter
+
+
+        for i, label in enumerate(labels):
+            _data = None
+            if label%2 == 0: # even
+                _data, _ = ones_loader_iter.next()
+            else:
+                _data, _ = zeros_loader_iter.next()
+            _data = _data.squeeze()
+            _data = _data.view(28, 28)
+            _data = (_data - _data.min()) / (_data.max() - _data.min())
+            parity_img_batch[i] = _data
+
+        return parity_img_batch
 
     def generate_random_batch(self, device='cpu', train = True):
         data_iter = self.train_loader_iter
@@ -86,13 +152,15 @@ class RecallTaskMNISTParams(TaskBaseParams):
         inp = torch.zeros(self.sequence_l, self.batch_size, self.sequence_width, device=device)
         outp = torch.zeros(self.sequence_k, self.batch_size, self.sequence_width, device=device)
         for i in range(self.sequence_l):
-            _data, _ = data_iter.next()
+            _data, labels = data_iter.next()
             _data = _data.squeeze()
             _data = _data.view(-1, 28 * 28)
             _data = (_data - _data.min()) / (_data.max() - _data.min())
             inp[i, :, :] = _data
             if i < self.sequence_k:
-                outp[i, :, :] = _data
+                parity_img_batch = self.labels_to_parity_img_batch(labels.numpy(), device=device)
+                parity_img_batch = parity_img_batch.view(-1, 28*28)
+                outp[i, :, :] = parity_img_batch
 
         return inp, outp
 
@@ -103,13 +171,15 @@ class RecallTaskMNISTParams(TaskBaseParams):
         inp = torch.zeros(self.sequence_l, batch_size, self.sequence_width, device=device)
         outp = torch.zeros(self.sequence_k, batch_size, self.sequence_width, device=device)
         for i in range(self.sequence_l):
-            _data, _ = data_iter.next()
+            _data, labels = data_iter.next()
             _data = _data.squeeze()
             _data = _data.view(-1, 28 * 28)
             _data = (_data - _data.min()) / (_data.max() - _data.min())
             inp[i, :, :] = _data
             if i < self.sequence_k:
-                outp[i, :, :] = _data
+                parity_img_batch = self.labels_to_parity_img_batch(labels.numpy(), train=False, device=device)
+                parity_img_batch = parity_img_batch.view(-1, 28*28)
+                outp[i, :, :] = parity_img_batch
 
         return inp, outp
 
@@ -141,5 +211,8 @@ class RecallTaskMNISTParams(TaskBaseParams):
         torchvision.utils.save_image(_Y_out_binary.cpu().detach().squeeze(1),
                                      '{}/batch-{}-Y-out-binary.png'.format(path, batch_num))
 
-        torchvision.utils.save_image(modelcell.memory.memory.cpu().detach().squeeze(0),
+        memory = modelcell.memory.memory.cpu().detach().squeeze(0)
+        if memory.size()[1] == 1:
+            memory = memory.repeat(1, 2)
+        torchvision.utils.save_image(memory,
                                      '{}/batch-{}-mem.png'.format(path, batch_num))

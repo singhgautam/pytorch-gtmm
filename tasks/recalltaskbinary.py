@@ -50,7 +50,7 @@ class RecallTaskBinaryParams(TaskBaseParams):
     def generate_illustrative_random_batch(self, device = 'cpu'):
         return self.generate_random_batch(batch_size=1, device = device)
 
-    def create_images(self, batch_num, X, Y_out, Y_out_binary, attention_history, modelcell):
+    def create_images(self, batch_num, X, Y, Y_out, Y_out_binary, attention_history, modelcell):
         # make directories
         path = 'imsaves/{}'.format(self.name)
         try:
@@ -61,12 +61,14 @@ class RecallTaskBinaryParams(TaskBaseParams):
         # save images
         torchvision.utils.save_image(X.cpu().detach().squeeze(1),
                                      '{}/batch-{}-X.png'.format(path, batch_num))
-        torchvision.utils.save_image(Y_out.cpu().detach().squeeze(1),
+        torchvision.utils.save_image(Y.cpu().detach().squeeze(1),
                                      '{}/batch-{}-Y.png'.format(path, batch_num))
+        torchvision.utils.save_image(Y_out.cpu().detach().squeeze(1),
+                                     '{}/batch-{}-Y-out.png'.format(path, batch_num))
         torchvision.utils.save_image(attention_history.cpu().detach(),
                                      '{}/batch-{}-attention.png'.format(path, batch_num))
         torchvision.utils.save_image(Y_out_binary.cpu().detach().squeeze(1),
-                                     '{}/batch-{}-Y-binary.png'.format(path, batch_num))
+                                     '{}/batch-{}-Y-out-binary.png'.format(path, batch_num))
         torchvision.utils.save_image(modelcell.memory.memory.cpu().detach().squeeze(0),
                                      '{}/batch-{}-mem.png'.format(path, batch_num))
 

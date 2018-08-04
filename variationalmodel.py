@@ -18,7 +18,10 @@ class VariationalModel(nn.Module):
             nn.Linear(psi_dim + z_dim, h_dim),
             nn.ReLU(),
             nn.Linear(h_dim, h_dim),
-            nn.ReLU())
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
+            nn.ReLU()
+        )
         self.gen_mean = nn.Sequential(
             nn.Linear(h_dim, x_dim),
             nn.Sigmoid()
@@ -31,6 +34,8 @@ class VariationalModel(nn.Module):
         # inference
         self.inf = nn.Sequential(
             nn.Linear(psi_dim + x_dim, h_dim),
+            nn.ReLU(),
+            nn.Linear(h_dim, h_dim),
             nn.ReLU(),
             nn.Linear(h_dim, h_dim),
             nn.ReLU())
