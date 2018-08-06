@@ -12,6 +12,6 @@ The code implements the following tasks so far:
 ![parity-recall-illustrations](https://user-images.githubusercontent.com/7714289/43701186-e52fdaa6-9972-11e8-84e7-c96bf615ad04.png)
 
 
-## Known Issues
+## Known issues in this implementation
 1. Parity recall tasks returns incorrect parity in some cases where it is hard to "classify" the MNIST digit image.
 ![parity-recall-misses](https://user-images.githubusercontent.com/7714289/43701320-5392deee-9973-11e8-94cc-3fdbc17703bc.png)
