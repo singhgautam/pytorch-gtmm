@@ -5,6 +5,7 @@ from torchvision import datasets, transforms
 from itertools import cycle
 import os
 from taskbase import TaskBaseParams
+from variationalmodels.variationalmodel_2fc import VariationalModel2FC
 
 class RecallTaskMNISTParams(TaskBaseParams):
     name = "recall-task-mnist"
@@ -35,6 +36,8 @@ class RecallTaskMNISTParams(TaskBaseParams):
 
     save_every = 100
     illustrate_every = 100
+
+    variationalmodel = VariationalModel2FC
 
     def __init__(self):
         assert self.sequence_k <= self.sequence_l, "Meaningful sequence is larger than to the entire sequence length"

@@ -4,63 +4,24 @@ from torch.nn import functional as F
 import math
 
 
-class VariationalModel(nn.Module):
+class VariationalModelBase(nn.Module):
     def __init__(self, x_dim, h_dim, z_dim, psi_dim):
-        super(VariationalModel, self).__init__()
+        super(VariationalModelBase, self).__init__()
 
         self.x_dim = x_dim
         self.h_dim = h_dim
         self.z_dim = z_dim
         self.psi_dim = psi_dim
 
-        # generator
-        self.gen = nn.Sequential(
-            nn.Linear(psi_dim + z_dim, h_dim),
-            nn.ReLU(),
-            nn.Linear(h_dim, h_dim),
-            nn.ReLU(),
-            nn.Linear(h_dim, h_dim),
-            nn.ReLU()
-        )
-        self.gen_mean = nn.Sequential(
-            nn.Linear(h_dim, x_dim),
-            nn.Sigmoid()
-        )
-        self.gen_logvar = nn.Sequential(
-            nn.Linear(h_dim, x_dim),
-            nn.Softplus()
-        )
-
-        # inference
-        self.inf = nn.Sequential(
-            nn.Linear(psi_dim + x_dim, h_dim),
-            nn.ReLU(),
-            nn.Linear(h_dim, h_dim),
-            nn.ReLU(),
-            nn.Linear(h_dim, h_dim),
-            nn.ReLU())
-        self.inf_mean = nn.Sequential(
-            nn.Linear(h_dim, z_dim)
-        )
-        self.inf_logvar = nn.Sequential(
-            nn.Linear(h_dim, z_dim)
-        )
-
-        # prior
-        self.prior = nn.Sequential(
-            nn.Linear(psi_dim, h_dim),
-            nn.ReLU())
-        self.prior_mean = nn.Sequential(
-            nn.Linear(h_dim, z_dim)
-        )
-        self.prior_logvar = nn.Sequential(
-            nn.Linear(h_dim, z_dim)
-        )
-
         self.device = torch.device("cpu")
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         self.to(self.device)
+
+        self.init_nn_layers()
+
+    def init_nn_layers(self):
+        raise NotImplementedError
 
     def forward(self, psi_t, x_t, batch_size):
 

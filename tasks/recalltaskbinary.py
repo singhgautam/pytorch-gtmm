@@ -5,6 +5,7 @@ import numpy as np
 import torchvision
 import os
 from taskbase import TaskBaseParams
+from variationalmodels.variationalmodel_2fc import VariationalModel2FC
 
 class RecallTaskBinaryParams(TaskBaseParams):
     name = "recall-task-binary"
@@ -25,6 +26,7 @@ class RecallTaskBinaryParams(TaskBaseParams):
     adam_lr = 1e-4
     save_every = 100
     illustrate_every = 100
+    variationalmodel = VariationalModel2FC
 
     def generate_random_batch(self, batch_size=None, device='cpu'):
         if batch_size == None:

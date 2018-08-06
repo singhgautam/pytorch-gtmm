@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from controller import LSTMController
-from variationalmodel import VariationalModel
 from rom import ROM
 from state import State
 import numpy as np
@@ -38,7 +37,7 @@ class ModelCell(nn.Module):
         self.state = State(self.memory, self.controller)
 
         # create variational model
-        self.vmodel = VariationalModel(params.sequence_width,
+        self.vmodel = params.variationalmodel(params.sequence_width,
                                        params.variational_hidden_size,
                                        params.memory_m,
                                        params.memory_m)
