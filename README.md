@@ -1,4 +1,4 @@
-# PyTorch code for Generative Temporal Models with Memory (GTMM)
+# PyTorch Code for Generative Temporal Models with Memory (GTMM)
 
 This repository implements the **Generative Temporal Models with Memory** as proposed in the paper:
 
