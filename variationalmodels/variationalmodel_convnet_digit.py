@@ -92,7 +92,6 @@ class ConvNetEncoder(nn.Module):
         self.conv_dim_halving_1 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
         self.bn2 = nn.BatchNorm2d(32)
 
-        self.bn3 = nn.BatchNorm2d(32)
         self.conv1x1_2 = nn.Conv2d(32, 8, kernel_size=1, padding=0)
         self.conv3x3_2 = nn.Conv2d(32, 8, kernel_size=3, padding=1)
         self.conv5x5_2 = nn.Conv2d(32, 8, kernel_size=5, padding=2)
@@ -122,8 +121,6 @@ class ConvNetEncoder(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
 
-        x = self.bn3(x)
-        x = F.relu(x)
         x = torch.cat([
             self.conv1x1_2(x),
             self.conv3x3_2(x),
