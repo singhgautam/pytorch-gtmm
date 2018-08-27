@@ -5,10 +5,10 @@ from torchvision import datasets, transforms
 from itertools import cycle
 import os
 from taskbase import TaskBaseParams
-from variationalmodels.variationalmodel_3fc import VariationalModel3FC
+from variationalmodels.variationalmodel_convnet_digit import VariationalModelConvNetDigit
 
 class ParityRecallTaskMNISTParams(TaskBaseParams):
-    name = "parity-recall-task-mnist"
+    name = "parity-recall-task-mnist-dev"
 
     sequence_width = 28*28
     sequence_l = 10
@@ -37,7 +37,7 @@ class ParityRecallTaskMNISTParams(TaskBaseParams):
     save_every = 100
     illustrate_every = 100
 
-    variationalmodel = VariationalModel3FC
+    variationalmodel = VariationalModelConvNetDigit
 
     def __init__(self):
         assert self.sequence_k <= self.sequence_l, "Meaningful sequence is larger than to the entire sequence length"
