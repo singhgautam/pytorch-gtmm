@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from variationalmodelbase import VariationalModelBase
 
 
-class VariationalModelConvNetDigit(VariationalModelBase):
+class VariationalModelConvDigit(VariationalModelBase):
     def init_nn_layers(self):
 
         x_dim = self.x_dim
