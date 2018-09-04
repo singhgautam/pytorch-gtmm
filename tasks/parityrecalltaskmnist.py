@@ -8,7 +8,7 @@ from taskbase import TaskBaseParams
 from variationalmodels.variationalmodel_convdeconv_digit import VariationalModelConvDeconvDigit
 
 class ParityRecallTaskMNISTParams(TaskBaseParams):
-    name = "parity-recall-task-mnist-dev"
+    name = "parity-recall-task-mnist"
 
     sequence_width = 28*28
     sequence_l = 10
