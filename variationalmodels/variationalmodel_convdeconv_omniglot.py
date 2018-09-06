@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from variationalmodelbase import VariationalModelBase
 
 
-class VariationalModelConvDeconvDigit(VariationalModelBase):
+class VariationalModelConvDeconvOmniglot(VariationalModelBase):
     def init_nn_layers(self):
 
         x_dim = self.x_dim
@@ -88,9 +88,20 @@ class ConvNetEncoder(nn.Module):
         self.conv3x3_2 = nn.Conv2d(32, 8, kernel_size=3, padding=1)
         self.conv5x5_2 = nn.Conv2d(32, 8, kernel_size=5, padding=2)
         self.conv7x7_2 = nn.Conv2d(32, 8, kernel_size=7, padding=3)
-        self.conv_dim_halving_2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
+        self.conv_dim_halving_2 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(32)
 
-        self.fc1 = nn.Linear(8 * 8 * 64, 64)
+        self.bn_conv1x1_3 = nn.BatchNorm2d(8)
+        self.bn_conv3x3_3 = nn.BatchNorm2d(8)
+        self.bn_conv5x5_3 = nn.BatchNorm2d(8)
+        self.bn_conv7x7_3 = nn.BatchNorm2d(8)
+        self.conv1x1_3 = nn.Conv2d(32, 8, kernel_size=1, padding=0)
+        self.conv3x3_3 = nn.Conv2d(32, 8, kernel_size=3, padding=1)
+        self.conv5x5_3 = nn.Conv2d(32, 8, kernel_size=5, padding=2)
+        self.conv7x7_3 = nn.Conv2d(32, 8, kernel_size=7, padding=3)
+        self.conv_dim_halving_3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
+
+        self.fc1 = nn.Linear(14 * 14 * 64, 64)
         self.fc2_mean = nn.Linear(32 + psi_dim, h_dim)
         self.fc2_logvar = nn.Linear(32 + psi_dim, h_dim)
         self.fc3_mean = nn.Linear(h_dim, z_dim)
@@ -99,7 +110,7 @@ class ConvNetEncoder(nn.Module):
 
 
     def forward(self, psi, x):
-        x = x.view(-1, 1, 28, 28)
+        x = x.view(-1, 1, 105, 105)
 
         x = self.bn1(x)
         x = F.relu(x)
@@ -121,8 +132,19 @@ class ConvNetEncoder(nn.Module):
             F.relu(self.bn_conv7x7_2(self.conv7x7_2(x)))
         ], dim=1)
         x = self.conv_dim_halving_2(x)
+        x = self.bn3(x)
+        x = F.relu(x)
 
-        x = x.view(-1, 8 * 8 * 64)
+        x = torch.cat([
+            F.relu(self.bn_conv1x1_3(self.conv1x1_3(x))),
+            F.relu(self.bn_conv3x3_3(self.conv3x3_3(x))),
+            F.relu(self.bn_conv5x5_3(self.conv5x5_3(x))),
+            F.relu(self.bn_conv7x7_3(self.conv7x7_3(x)))
+        ], dim=1)
+        x = self.conv_dim_halving_3(x)
+
+
+        x = x.view(-1, 14 * 14 * 64)
 
         x = self.fc1(x)
         x_mean = F.relu(self.fc2_mean(torch.cat([psi, x[:,:32]], dim = 1)))
@@ -142,7 +164,8 @@ class ConvNetDecoder(nn.Module):
         self.z_dim = z_dim
 
         self.fc1 = nn.Linear(psi_dim + z_dim, h_dim)
-        self.fc2 = nn.Linear(h_dim, 64 * 8 * 8)
+        self.fc2 = nn.Linear(h_dim, 64 * 14 * 14)
+
         self.deconv_dim_doubling_1 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1)
 
         self.bn1 = nn.BatchNorm2d(32)
@@ -158,18 +181,32 @@ class ConvNetDecoder(nn.Module):
 
         self.bn3 = nn.BatchNorm2d(32)
 
-        self.deconv1x1_2 = nn.ConvTranspose2d(8, 1, kernel_size=1, padding=0)
-        self.deconv3x3_2 = nn.ConvTranspose2d(8, 1, kernel_size=3, padding=1)
-        self.deconv5x5_2 = nn.ConvTranspose2d(8, 1, kernel_size=5, padding=2)
-        self.deconv7x7_2 = nn.ConvTranspose2d(8, 1, kernel_size=7, padding=3)
+        self.deconv1x1_2 = nn.ConvTranspose2d(8, 32, kernel_size=1, padding=0)
+        self.deconv3x3_2 = nn.ConvTranspose2d(8, 32, kernel_size=3, padding=1)
+        self.deconv5x5_2 = nn.ConvTranspose2d(8, 32, kernel_size=5, padding=2)
+        self.deconv7x7_2 = nn.ConvTranspose2d(8, 32, kernel_size=7, padding=3)
+
+        self.bn4 = nn.BatchNorm2d(32)
+
+        self.deconv_dim_doubling_3 = nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, padding=1)
+
+        self.bn5 = nn.BatchNorm2d(32)
+
+        self.deconv1x1_3 = nn.ConvTranspose2d(8, 1, kernel_size=1, padding=0)
+        self.deconv3x3_3 = nn.ConvTranspose2d(8, 1, kernel_size=3, padding=1)
+        self.deconv5x5_3 = nn.ConvTranspose2d(8, 1, kernel_size=5, padding=2)
+        self.deconv7x7_3 = nn.ConvTranspose2d(8, 1, kernel_size=7, padding=3)
+
+
 
 
     def forward(self, psi_cat_z):
 
         x = F.relu(self.fc1(psi_cat_z))
         x = F.relu(self.fc2(x))
-        x = x.view(-1, 64, 8, 8)
-        x = self.deconv_dim_doubling_1(x, output_size=(16,16))
+        x = x.view(-1, 64, 14, 14)
+
+        x = self.deconv_dim_doubling_1(x, output_size=(28,28))
         x = self.bn1(x)
         x = F.relu(x)
 
@@ -177,15 +214,23 @@ class ConvNetDecoder(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
 
-        x = self.deconv_dim_doubling_2(x, output_size=(32,32))
+        x = self.deconv_dim_doubling_2(x, output_size=(55,55))
         x = self.bn3(x)
         x = F.relu(x)
 
         x = self.deconv1x1_2(x[:,0:8,:,:]) + self.deconv3x3_2(x[:,8:16,:,:]) + self.deconv5x5_2(x[:,16:24,:,:]) + self.deconv7x7_2(x[:,24:32,:,:])
+        x = self.bn4(x)
+        x = F.relu(x)
+
+        x = self.deconv_dim_doubling_3(x, output_size=(109,109))
+        x = self.bn5(x)
+        x = F.relu(x)
+
+        x = self.deconv1x1_3(x[:,0:8,:,:]) + self.deconv3x3_3(x[:,8:16,:,:]) + self.deconv5x5_3(x[:,16:24,:,:]) + self.deconv7x7_3(x[:,24:32,:,:])
         x = F.sigmoid(x)
 
-        x = x[:,0,2:30,2:30] #remove padding
-        x = x.contiguous().view(-1,28*28) #unwrap the image
+        x = x[:,0,2:107,2:107] #remove padding
+        x = x.contiguous().view(-1,105*105) #unwrap the image
 
         return x
 
