@@ -11,14 +11,14 @@ class OneShotRecallTaskOmniglotParams(TaskBaseParams):
     name = "oneshot-recall-task-omniglot"
 
     sequence_width = 105 * 105
-    sequence_l = 10
-    sequence_k = 5
+    sequence_l = 2
+    sequence_k = 1
 
     controller_size = 256
     controller_layers = 3
 
     memory_n = 128
-    memory_m = 32
+    memory_m = 100
     num_read_heads = 1
 
     variational_hidden_size = 400

@@ -101,9 +101,9 @@ class ConvNetEncoder(nn.Module):
         self.conv7x7_3 = nn.Conv2d(32, 8, kernel_size=7, padding=3)
         self.conv_dim_halving_3 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
 
-        self.fc1 = nn.Linear(14 * 14 * 64, 64)
-        self.fc2_mean = nn.Linear(32 + psi_dim, h_dim)
-        self.fc2_logvar = nn.Linear(32 + psi_dim, h_dim)
+        self.fc1 = nn.Linear(14 * 14 * 64, 2 * psi_dim)
+        self.fc2_mean = nn.Linear( 2 * psi_dim, h_dim)
+        self.fc2_logvar = nn.Linear( 2 * psi_dim, h_dim)
         self.fc3_mean = nn.Linear(h_dim, z_dim)
         self.fc3_logvar = nn.Linear(h_dim, z_dim)
 
@@ -147,8 +147,8 @@ class ConvNetEncoder(nn.Module):
         x = x.view(-1, 14 * 14 * 64)
 
         x = self.fc1(x)
-        x_mean = F.relu(self.fc2_mean(torch.cat([psi, x[:,:32]], dim = 1)))
-        x_logvar = F.relu(self.fc2_logvar(torch.cat([psi, x[:,32:]], dim = 1)))
+        x_mean = F.relu(self.fc2_mean(torch.cat([psi, x[:,:self.psi_dim]], dim = 1)))
+        x_logvar = F.relu(self.fc2_logvar(torch.cat([psi, x[:,self.psi_dim:]], dim = 1)))
 
         x_mean = self.fc3_mean(x_mean)
         x_logvar = self.fc3_logvar(x_logvar)
@@ -191,6 +191,7 @@ class ConvNetDecoder(nn.Module):
         self.deconv_dim_doubling_3 = nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, padding=1)
 
         self.bn5 = nn.BatchNorm2d(32)
+
 
         self.deconv1x1_3 = nn.ConvTranspose2d(8, 1, kernel_size=1, padding=0)
         self.deconv3x3_3 = nn.ConvTranspose2d(8, 1, kernel_size=3, padding=1)
