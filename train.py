@@ -7,6 +7,7 @@ from tasks.recalltaskbinary import RecallTaskBinaryParams
 from tasks.recalltaskmnist import RecallTaskMNISTParams
 from tasks.parityrecalltaskmnist import ParityRecallTaskMNISTParams
 from tasks.oneshotrecalltaskomniglot import OneShotRecallTaskOmniglotParams
+from tasks.dynamicdependencytaskmnist import DynamicDependencyTaskMNISTParams
 import logging
 import json
 import time
@@ -62,7 +63,8 @@ init_seed(1000)
 # params = RecallTaskBinaryParams()
 # params = RecallTaskMNISTParams()
 # params = ParityRecallTaskMNISTParams()
-params = OneShotRecallTaskOmniglotParams()
+# params = OneShotRecallTaskOmniglotParams()
+params = DynamicDependencyTaskMNISTParams()
 
 # init model cell
 modelcell = ModelCell(params)
