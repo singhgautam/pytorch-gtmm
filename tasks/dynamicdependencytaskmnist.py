@@ -19,8 +19,8 @@ class DynamicDependencyTaskMNISTParams(TaskBaseParams):
     controller_size = 256
     controller_layers = 3
 
-    memory_n = 128
-    memory_m = 32
+    memory_n = 20
+    memory_m = 50
     num_read_heads = 1
 
     variational_hidden_size = 400
