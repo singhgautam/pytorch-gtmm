@@ -34,17 +34,18 @@ class ModelCell(nn.Module):
                                          params.controller_layers)
 
         # create state
-        self.state = State(self.memory, self.controller)
+        self.state = State(self.memory, self.controller, self.params)
 
         # create variational model
         self.vmodel = params.variationalmodel(params.sequence_width,
                                        params.variational_hidden_size,
                                        params.memory_m,
-                                       params.memory_m)
+                                       params.memory_m * self.params.num_read_heads)
 
         # create FC layer for addressing using controller output
         self.addressing_params_sizes = [self.memory.M, 1, 1, 3, 1]
-        self.fc1 =  nn.Linear(params.controller_size, sum(self.addressing_params_sizes))
+        self.head_address_sizes = [sum(self.addressing_params_sizes)] * self.params.num_read_heads
+        self.fc1 =  nn.Linear(params.controller_size, sum(self.addressing_params_sizes) * self.params.num_read_heads)
 
         self.to(self.device)
 
@@ -55,11 +56,15 @@ class ModelCell(nn.Module):
     def forward(self, X, batch_size):
         cout, self.state.controllerstate.state = self.controller(self.state.latentstate.state,
                                                                  self.state.controllerstate.state)
-        address_params = self.fc1(cout)
-        k, beta, g, s, gamma = _split_cols(address_params, self.addressing_params_sizes)
-        self.state.readstate.w = self.memory.address(k, beta, g, s, gamma, self.state.readstate.w)
-        self.state.readstate.r = self.memory.read(self.state.readstate.w)
-        self.state.latentstate.state, X_gen_mean, _elbo = self.vmodel(self.state.readstate.r, X, batch_size)
+        packed_address_params = self.fc1(cout)
+        for head_idx, address_params in enumerate(_split_cols(packed_address_params, self.head_address_sizes)):
+            k, beta, g, s, gamma = _split_cols(address_params, self.addressing_params_sizes)
+            self.state.readstate[head_idx].w = self.memory.address(k, beta, g, s, gamma, self.state.readstate[head_idx].w)
+            self.state.readstate[head_idx].r = self.memory.read(self.state.readstate[head_idx].w)
+        self.state.latentstate.state, X_gen_mean, _elbo = self.vmodel(
+            torch.cat([self.state.readstate[i].r for i in range(self.params.num_read_heads)], dim=1),
+            X,
+            batch_size)
         self.memory.write(self.state.latentstate.state)
 
         return _elbo, X_gen_mean
@@ -67,11 +72,14 @@ class ModelCell(nn.Module):
     def generate(self, batch_size):
         cout, self.state.controllerstate.state = self.controller(self.state.latentstate.state,
                                                                  self.state.controllerstate.state)
-        address_params = self.fc1(cout)
-        k, beta, g, s, gamma = _split_cols(address_params, self.addressing_params_sizes)
-        self.state.readstate.w = self.memory.address(k, beta, g, s, gamma, self.state.readstate.w)
-        self.state.readstate.r = self.memory.read(self.state.readstate.w)
-        self.state.latentstate.state, X_gen_mean = self.vmodel.sample_x_mean(self.state.readstate.r, batch_size)
+        packed_address_params = self.fc1(cout)
+        for head_idx, address_params in enumerate(_split_cols(packed_address_params, self.head_address_sizes)):
+            k, beta, g, s, gamma = _split_cols(address_params, self.addressing_params_sizes)
+            self.state.readstate[head_idx].w = self.memory.address(k, beta, g, s, gamma, self.state.readstate[head_idx].w)
+            self.state.readstate[head_idx].r = self.memory.read(self.state.readstate[head_idx].w)
+        self.state.latentstate.state, X_gen_mean = self.vmodel.sample_x_mean(
+            torch.cat([self.state.readstate[i].r for i in range(self.params.num_read_heads)], dim=1),
+            batch_size)
         self.memory.write(self.state.latentstate.state)
 
         return X_gen_mean

@@ -57,15 +57,19 @@ class LatentState(nn.Module):
         self.state = torch.zeros(batch_size, self.latent_size, device = self.device)
 
 class State(nn.Module):
-    def __init__(self, memory, controller):
+    def __init__(self, memory, controller, params):
         super(State, self).__init__()
         self.memory = memory
         self.controller = controller
+        self.params = params
 
     def reset(self, batch_size):
-        # setup readstate
-        self.readstate = ReadState(self.memory)
-        self.readstate.reset(batch_size)
+        # setup readstates
+        self.readstate = []
+        for i in range(self.params.num_read_heads):
+            _readstate = ReadState(self.memory)
+            _readstate.reset(batch_size)
+            self.readstate.append(_readstate)
 
         # setup controller state
         self.controllerstate = ControllerState(self.controller)

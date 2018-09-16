@@ -75,8 +75,9 @@ modelcell.controller.reset_parameters()
 print 'modelcell.device {}'.format(modelcell.device)
 print 'modelcell.memory.memory.device {}'.format(modelcell.memory.memory.device)
 print 'modelcell.controller.device {}'.format(modelcell.controller.device)
-print 'modelcell.state.readstate.w.device {}'.format(modelcell.state.readstate.w.device)
-print 'modelcell.state.readstate.r.device {}'.format(modelcell.state.readstate.r.device)
+for i in range(params.num_read_heads):
+    print 'modelcell.state.readstate[{}].w.device {}'.format(i, modelcell.state.readstate[i].w.device)
+    print 'modelcell.state.readstate[{}].r.device {}'.format(i, modelcell.state.readstate[i].r.device)
 print 'modelcell.state.controllerstate.device {}'.format(modelcell.state.controllerstate.device)
 print 'modelcell.state.latentstate.state.device {}'.format(modelcell.state.latentstate.state.device)
 
@@ -132,21 +133,26 @@ for batch_num in range(params.num_batches):
         modelcell.memory.reset(batch_size=1)
         modelcell.state.reset(batch_size=1)
 
-        attention_history = torch.zeros(1 + X.size(0) + Y.size(0), modelcell.memory.N, device=device)
-        attention_history[0] = modelcell.state.readstate.w.squeeze()
+        attention_history = []
+        for head_idx in range(params.num_read_heads):
+            attention_history.append(torch.zeros(1 + X.size(0) + Y.size(0), modelcell.memory.N, device=device))
+            attention_history[head_idx][0] = modelcell.state.readstate[head_idx].w.squeeze()
 
         # input phase
         for i in range(X.size(0)):
             _elbo, _ = modelcell(X[i], params.batch_size)
-            attention_history[1 + i] = modelcell.state.readstate.w.squeeze()
+            for head_idx in range(params.num_read_heads):
+                attention_history[head_idx][1 + i] = modelcell.state.readstate[head_idx].w.squeeze()
 
         # output phase
         Y_out = torch.zeros(Y.size(), device=device)
         for i in range(Y.size(0)):
             Y_out[i] = modelcell.generate(1)
-            attention_history[1 + X.size(0) + i] = modelcell.state.readstate.w.squeeze()
+            for head_idx in range(params.num_read_heads):
+                attention_history[head_idx][1 + X.size(0) + i] = modelcell.state.readstate[head_idx].w.squeeze()
 
         Y_out_binary = Y_out.cpu().clone().data
         Y_out_binary.apply_(lambda x: 0 if x < 0.5 else 1)
 
+        attention_history = torch.cat(attention_history, dim = 0)
         params.create_images(batch_num, X, Y, Y_out, Y_out_binary, attention_history, modelcell)
